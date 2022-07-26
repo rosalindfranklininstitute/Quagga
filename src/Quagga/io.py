@@ -22,9 +22,9 @@ from mpl_point_clicker import clicker
 
 def open_image(path,
                pw_nm,
-               sample_dims_um,
-               sample_points,
-               sample_offset_um,
+               patch_size_um,
+               patch_dims,
+               patch_offset_um,
                idx=0,
                trunc=1,
                num_ramps=1,
@@ -35,9 +35,9 @@ def open_image(path,
     Args:
     path (str) :: Path to raw image
     pw_nm (float) :: Pixel width in um
-    sample_dims_um (2-tuple) :: Dimensions of patches in um
-    sample_points (2-tuple) :: Number of patches in each direction for each ramp
-    sample_offset_um (float) :: Separation of patches in um
+    patch_size_um (2-tuple) :: Dimensions of patches in um
+    patch_dims (2-tuple) :: Number of patches in each direction for each ramp
+    patch_offset_um (float) :: Separation of patches in um
     idx (int) :: Index of image to be assessed (if image is in a stack)
     trunc (int) :: Number of pixels to be truncated from image bottom (due to information bar)
     num_ramps (int) :: Number of ramps in image
@@ -50,8 +50,8 @@ def open_image(path,
     if img.ndim == 2:
         img = img[np.newaxis, :, :-trunc]
 
-    sample_dims_px = np.array(sample_dims_um)*1000 // np.array(pw_nm)
-    sample_dims_half = sample_dims_px // 2
+    patch_size_px = np.array(patch_size_um)*1000 // np.array(pw_nm)
+    patch_size_half = patch_size_px // 2
 
     # Collect user clicks
     fig, ax = plt.subplots(figsize=(15, 9))
@@ -62,12 +62,12 @@ def open_image(path,
     clicks = clicks[:, ::-1]
 
     # Convert sample offset to pixels and create mesh
-    sample_offset_px = np.array(sample_offset_um)*1000 // np.array(pw_nm)
-    offsets_x_px = np.array(np.arange(-0.5*(sample_points[0]-1),
-                                      0.5*(sample_points[0]+1)*sample_offset_px,
+    patch_offset_px = np.array(patch_offset_um)*1000 // np.array(pw_nm)
+    offsets_x_px = np.array(np.arange(-0.5*(patch_dims[0]-1),
+                                      0.5*(patch_dims[0]+1)*patch_offset_px,
                                       dtype=int))
-    offsets_y_px = np.array(np.arange(-0.5*(sample_points[1]-1),
-                                      0.5*(sample_points[1]+1)*sample_offset_px,
+    offsets_y_px = np.array(np.arange(-0.5*(patch_dims[1]-1),
+                                      0.5*(patch_dims[1]+1)*patch_offset_px,
                                       dtype=int))
 
     cntrs, uls, lrs = [], [], []
@@ -75,13 +75,17 @@ def open_image(path,
         for _, osx in enumerate(offsets_x_px):
             for _, osy in enumerate(offsets_y_px):
                 cntrs.append(click + np.array([osx, osy]))
-                uls.append(click + np.array([osx, osy]) - sample_dims_half)
-                lrs.append(click + np.array([osx, osy]) + sample_dims_half)
+                uls.append(click + np.array([osx, osy]) - patch_size_half)
+                lrs.append(click + np.array([osx, osy]) + patch_size_half)
 
     # Normalisation of image
-    midrange = [np.percentile(img, 10), np.percentile(img, 90)]
-    img_cec = (img-midrange[0]) / (midrange[1]-midrange[0])
-    img_cec[img_cec<0] = 0
-    img_cec[img_cec>1] = 1
+    if normalise:
+        midrange = [np.percentile(img, 10), np.percentile(img, 90)]
+        img_cec = (img-midrange[0]) / (midrange[1]-midrange[0])
+        img_cec[img_cec<0] = 0
+        img_cec[img_cec>1] = 1
+
+    # Close image
+    plt.close(fig)
 
     return img_cec, np.array(cntrs, dtype=int), np.array(uls, dtype=int), np.array(lrs, dtype=int)
