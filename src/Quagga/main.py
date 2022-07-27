@@ -120,9 +120,9 @@ def calculate(
                                heatmap_in=heatmap,
                                num_samples=params['num_samples'])
 
-    print(df[["Gas", "FIB Current (nA)", "Image name", "S_mean", "S_sd"]])
+    df_reduced = df[["Filename", "Gas", "FIB Current (nA)", "Image name", "S_mean", "S_sd"]]
 
-    df.to_pickle(str(params['output_pkl_image']))
+    df_reduced.to_pickle(str(params['output_pkl_image']))
     scores_df.to_pickle(str(params['output_pkl_setting']))
 
     print("")
