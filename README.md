@@ -1,5 +1,6 @@
-# Quagga
+# Quagga [![DOI](https://zenodo.org/badge/517970052.svg)](https://zenodo.org/badge/latestdoi/517970052)
 Curtaining artefact quantification for electron microscopic image 
+
 
 ## Usage
 ### Installation
