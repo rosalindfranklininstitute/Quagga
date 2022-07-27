@@ -18,6 +18,7 @@ from functools import partial
 from joblib import Parallel, delayed, parallel_backend
 
 import numpy as np
+import pandas as pd
 from scipy.ndimage import rotate
 from scipy.interpolate import interp1d
 from skimage.feature import match_template
@@ -25,6 +26,8 @@ from skimage.feature import match_template
 from icecream import ic
 
 np.seterr(all="ignore")
+pd.set_option('mode.chained_assignment', None)
+
 
 class Fake(object):
     """
