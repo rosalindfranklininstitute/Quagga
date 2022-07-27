@@ -15,20 +15,20 @@
 
 from magicgui import magicgui as mg
 import pandas as pd
-from glob import glob
+import numpy as np
 from pathlib import Path
 
+from functools import partial
+from joblib import Parallel, delayed, parallel_backend
+
+import cProfile as profile
+import pstats
+from icecream import ic
+
+
 from . import io
-from . import user_inputs as UI
+from . import calculations as Calc
 from . import logger as Logger
-
-
-class Fake(object):
-    """
-    Class encapsulating a Fake object
-    """
-    def __init__(self, li_obj):
-        self.obj = li_obj
 
 
 @mg(
@@ -46,6 +46,8 @@ class Fake(object):
                      "label": "Patch offset in um"},
     sample_size_nm={"label": "Size of artificial Gaussian samples in nm",
                     "min": 300},
+    num_samples={"label": "Number of artificial Gaussian samples used",
+                 "min": 1},
     output_pkl_image={"label": "Path to pickled output scores by image"},
     output_pkl_setting={"label": "Path to pickled output scores by setting"},
 )
@@ -55,6 +57,7 @@ def calculate(
         patch_size_um = (1, 1),
         patch_offset_um = 0.2,
         sample_size_nm = 1000.0,
+        num_samples = 15,
         output_pkl_image = Path("."),
         output_pkl_setting = Path(".")
 ):
@@ -91,13 +94,40 @@ def calculate(
                                                normalise=True
         )
         df.loc[df.Filename==path, "block_size"] = block_size
-        df.loc[df.Filename==path, "images"] = Fake(image)
-        df.loc[df.Filename==path, "centres"] = Fake(cntrs)
-        df.loc[df.Filename==path, "uls"] = Fake(uls)
-        df.loc[df.Filename==path, "lrs"] = Fake(lrs)
+        df.loc[df.Filename==path, "images"] = Calc.Fake(image)
+        df.loc[df.Filename==path, "centres"] = Calc.Fake(cntrs)
+        df.loc[df.Filename==path, "uls"] = Calc.Fake(uls)
+        df.loc[df.Filename==path, "lrs"] = Calc.Fake(lrs)
 
-    print(df)
+    # Get gaussian strip samples
+    log("Preparing xcorr templates...")
+    curt_samples = Calc.get_samples_dict(df_in=df,
+                                         num_sigma=params['num_samples'])
 
+    # Get aggregated parameter list
+    log("Preparing job list...")
+    params_list = Calc.get_full_params_list(df_in=df,
+                                            samples_in=curt_samples)
+
+    # Actual parallel calculation
+    log(f"Starting calculation with {len(params_list)} jobs... \n")
+    heatmap = Calc.calc_parallel(30, 0.1, params_list, patch_dim=params['patch_dims'])
+
+    # Aggregate data and output to pickle
+    print("")
+    log("All calculation finished. Now aggregating results...")
+    scores_df = Calc.aggregate(df_in=df,
+                               heatmap_in=heatmap,
+                               num_samples=params['num_samples'])
+
+    print(df[["Gas", "FIB Current (nA)", "Image name", "S_mean", "S_sd"]])
+
+    df.to_pickle(str(params['output_pkl_image']))
+    scores_df.to_pickle(str(params['output_pkl_setting']))
+
+    print("")
+    log("All finished. The GUI can be safely closed now.")
+    return
 
 
 def calculate_wrapper():

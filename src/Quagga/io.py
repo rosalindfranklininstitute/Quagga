@@ -48,7 +48,7 @@ def open_image(path,
     """
     img = io.imread(path)
     if img.ndim == 2:
-        img = img[np.newaxis, :, :-trunc]
+        img = img[np.newaxis, ...]
 
     patch_size_px = np.array(patch_size_um)*1000 // np.array(pw_nm)
     patch_size_half = patch_size_px // 2
@@ -62,13 +62,13 @@ def open_image(path,
     clicks = clicks[:, ::-1]
 
     # Convert sample offset to pixels and create mesh
-    patch_offset_px = np.array(patch_offset_um)*1000 // np.array(pw_nm)
+    patch_offset_px = np.array(patch_offset_um)*1000 / np.array(pw_nm)
     offsets_x_px = np.array(np.arange(-0.5*(patch_dims[0]-1),
-                                      0.5*(patch_dims[0]+1)*patch_offset_px,
-                                      dtype=int))
+                                      0.5*(patch_dims[0]+1))*patch_offset_px,
+                                      dtype=int)
     offsets_y_px = np.array(np.arange(-0.5*(patch_dims[1]-1),
-                                      0.5*(patch_dims[1]+1)*patch_offset_px,
-                                      dtype=int))
+                                      0.5*(patch_dims[1]+1))*patch_offset_px,
+                                      dtype=int)
 
     cntrs, uls, lrs = [], [], []
     for _, click in enumerate(clicks):
@@ -84,8 +84,9 @@ def open_image(path,
         img_cec = (img-midrange[0]) / (midrange[1]-midrange[0])
         img_cec[img_cec<0] = 0
         img_cec[img_cec>1] = 1
+        out_image = img_cec[idx, :-trunc]
 
     # Close image
     plt.close(fig)
 
-    return img_cec, np.array(cntrs, dtype=int), np.array(uls, dtype=int), np.array(lrs, dtype=int)
+    return out_image, np.array(cntrs, dtype=int), np.array(uls, dtype=int), np.array(lrs, dtype=int)

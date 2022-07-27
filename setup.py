@@ -33,10 +33,13 @@ setup(
         'mpl_point_clicker',
         'scikit-image',
         'pandas',
-        'icecream'
+        'icecream',
+        'magicgui',
+        'pyqt5',
     ],
-    # entry_points={
-    #     "console_scripts": [
-    #     ]
-    # }
+    entry_points={
+        "console_scripts": [
+            "quagga.run=Quagga.main:calculate_wrapper",
+        ]
+    }
 )
