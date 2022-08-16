@@ -23,7 +23,6 @@ from mpl_point_clicker import clicker
 def open_image(path,
                pw_nm,
                patch_size_um,
-               patch_dims,
                patch_offset_um,
                idx=0,
                trunc=1,
@@ -36,7 +35,6 @@ def open_image(path,
     path (str) :: Path to raw image
     pw_nm (float) :: Pixel width in um
     patch_size_um (2-tuple) :: Dimensions of patches in um
-    patch_dims (2-tuple) :: Number of patches in each direction for each ramp
     patch_offset_um (float) :: Separation of patches in um
     idx (int) :: Index of image to be assessed (if image is in a stack)
     trunc (int) :: Number of pixels to be truncated from image bottom (due to information bar)
@@ -51,32 +49,34 @@ def open_image(path,
         img = img[np.newaxis, ...]
 
     patch_size_px = np.array(patch_size_um)*1000 // np.array(pw_nm)
-    patch_size_half = patch_size_px // 2
 
     # Collect user clicks
     fig, ax = plt.subplots(figsize=(15, 9))
     plt.title(f"{path}: {num_ramps} ramps")
     ax.imshow(img[idx, :-trunc], cmap="gist_gray")
 
-    clicks = np.array(plt.ginput(num_ramps), dtype=int)
+    clicks = np.array(plt.ginput(num_ramps*2), dtype=int)
     clicks = clicks[:, ::-1]
+    click_uls, click_lrs = clicks[::2], clicks[1::2]
+    ramp_size = np.array([click_lrs[i]-click_uls[i] for i in range(len(click_uls))])
+
+    # Calculate patch dims per ramp
+    patch_offset_px = (np.array(patch_offset_um)*1000 // np.array(pw_nm)).astype(int)
+    patch_dim = ((ramp_size-patch_size_px)//patch_offset_px).astype(int)
 
     # Convert sample offset to pixels and create mesh
-    patch_offset_px = np.array(patch_offset_um)*1000 / np.array(pw_nm)
-    offsets_x_px = np.array(np.arange(-0.5*(patch_dims[0]-1),
-                                      0.5*(patch_dims[0]+1))*patch_offset_px,
-                                      dtype=int)
-    offsets_y_px = np.array(np.arange(-0.5*(patch_dims[1]-1),
-                                      0.5*(patch_dims[1]+1))*patch_offset_px,
-                                      dtype=int)
+    uls, lrs = [], []
+    for click_idx, click in enumerate(click_uls):
+        curr_patch_dim = patch_dim[click_idx]
+        for i in range(curr_patch_dim[0]):
+            ul_x = i*patch_offset_px
+            for j in range(curr_patch_dim[1]):
+                ul_y = j*patch_offset_px
+                uls.append(click + np.array([ul_x, ul_y]))
+                lrs.append(click + np.array([ul_x, ul_y]) + patch_size_px)
 
-    cntrs, uls, lrs = [], [], []
-    for _, click in enumerate(clicks):
-        for _, osx in enumerate(offsets_x_px):
-            for _, osy in enumerate(offsets_y_px):
-                cntrs.append(click + np.array([osx, osy]))
-                uls.append(click + np.array([osx, osy]) - patch_size_half)
-                lrs.append(click + np.array([osx, osy]) + patch_size_half)
+    # Close image
+    plt.close(fig)
 
     # Normalisation of image
     if normalise:
@@ -86,7 +86,4 @@ def open_image(path,
         img_cec[img_cec>1] = 1
         out_image = img_cec[idx, :-trunc]
 
-    # Close image
-    plt.close(fig)
-
-    return out_image, np.array(cntrs, dtype=int), np.array(uls, dtype=int), np.array(lrs, dtype=int)
+    return out_image, np.array(uls, dtype=int), np.array(lrs, dtype=int), np.array(patch_dim)
