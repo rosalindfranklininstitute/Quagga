@@ -81,17 +81,18 @@ def calculate(
     for path in df.Filename.to_list():
         block_size = int(params['sample_size_nm'] // df.loc[df.Filename==path]["PW (nm)"].values[0])
 
-        image, uls, lrs = io.open_image(path=path,
-                                        pw_nm=df.loc[df.Filename==path]["PW (nm)"].values[0],
-                                        patch_size_um=params['patch_size_um'],
-                                        patch_offset_um=params['patch_offset_um'],
-                                        num_ramps=df.loc[df.Filename==path]["Nramps"].values[0],
-                                        normalise=True
+        image, uls, lrs, patch_dim = io.open_image(path=path,
+                                                   pw_nm=df.loc[df.Filename==path]["PW (nm)"].values[0],
+                                                   patch_size_um=params['patch_size_um'],
+                                                   patch_offset_um=params['patch_offset_um'],
+                                                   num_ramps=df.loc[df.Filename==path]["Nramps"].values[0],
+                                                   normalise=True
         )
         df.loc[df.Filename==path, "block_size"] = block_size
         df.loc[df.Filename==path, "images"] = Calc.Fake(image)
         df.loc[df.Filename==path, "uls"] = Calc.Fake(uls)
         df.loc[df.Filename==path, "lrs"] = Calc.Fake(lrs)
+        df.loc[df.Filename==path, "patch_dim"] = Calc.Fake(patch_dim)
 
     # Get gaussian strip samples
     log("Preparing xcorr templates...")
@@ -105,7 +106,7 @@ def calculate(
 
     # Actual parallel calculation
     log(f"Starting calculation with {len(params_list)} jobs... \n")
-    heatmap = Calc.calc_parallel(30, 0.1, params_list, patch_dim=params['patch_dims'])
+    heatmap = Calc.calc_parallel(30, 0.1, params_list)
 
     # Aggregate data and output to pickle
     print("")

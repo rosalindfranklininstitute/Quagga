@@ -86,4 +86,4 @@ def open_image(path,
         img_cec[img_cec>1] = 1
         out_image = img_cec[idx, :-trunc]
 
-    return out_image, np.array(uls, dtype=int), np.array(lrs, dtype=int)
+    return out_image, np.array(uls, dtype=int), np.array(lrs, dtype=int), np.array(patch_dim)

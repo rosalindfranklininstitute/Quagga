@@ -15,6 +15,7 @@
 
 import multiprocessing as mp
 from functools import partial
+from itertools import islice
 from joblib import Parallel, delayed, parallel_backend
 
 import numpy as np
@@ -94,8 +95,8 @@ def get_full_params_list(df_in, samples_in):
     Returns:
     list
     """
-    params_list_df = df_in[df_in['images'].notna()][['images', 'block_size', 'uls', 'lrs']].values.tolist()
-    params_list_cleaned = [[(item[0].obj, int(item[1]), item[2].obj, item[3].obj, sample) for \
+    params_list_df = df_in[df_in['images'].notna()][['images', 'block_size', 'uls', 'lrs', 'patch_dim']].values.tolist()
+    params_list_cleaned = [[(item[0].obj, int(item[1]), item[2].obj, item[3].obj, item[4].obj, sample) for \
                             sample in samples_in[item[1]]] for item in params_list_df]
     params_list_flattened = [item for sublist in params_list_cleaned for item in sublist]
 
@@ -233,15 +234,19 @@ def get_image_stats(img_in, sample_in, ft_patchsize, ul_list, lr_list, patch_dim
                               fine_spacing=fine_spacing)
         value_list.append(av)
 
-    patch_size = np.prod(patch_dim)
-    values = np.array(value_list).reshape((len(value_list)//patch_size, patch_size))
-    mean_values = np.mean(values, axis=1)
+    patch_sizes = np.prod(patch_dim, axis=1)
+    print(patch_sizes)
+    def rampify(av_list, sizes):
+        it = iter(av_list)
+        return [np.mean(list(islice(it, i))) for i in sizes]
 
-    return mean_values
+    ramp_values = rampify(value_list, patch_sizes)
+
+    return np.array(ramp_values)
 
 
-def calc_basis_func(params_in, rough_pts, fine_spacing, patch_dim):
-    img_in, ft_patchsize, ul_list, lr_list, sample_in = params_in
+def calc_basis_func(params_in, rough_pts, fine_spacing):
+    img_in, ft_patchsize, ul_list, lr_list, patch_dim, sample_in = params_in
     filtered = calc_corr(img_in=img_in,
                          sample_in=sample_in)
     av = get_image_stats(img_in=img_in,
@@ -256,11 +261,10 @@ def calc_basis_func(params_in, rough_pts, fine_spacing, patch_dim):
     return av
 
 
-def calc_parallel(rough_pts, fine_spacing, params_list_in, patch_dim):
+def calc_parallel(rough_pts, fine_spacing, params_list_in):
     g = partial(calc_basis_func,
                 rough_pts=rough_pts,
-                fine_spacing=fine_spacing,
-                patch_dim=patch_dim)
+                fine_spacing=fine_spacing)
 
     with parallel_backend("loky", n_jobs=-1):
         heatmap = Parallel(verbose=5)(delayed(g)(params) for params in params_list_in)
@@ -298,6 +302,7 @@ def aggregate(df_in, heatmap_in, num_samples):
     df_score_agg.drop(columns=['Settings', 'S_sum', 'S_sumsq'], inplace=True)
 
     df_score_agg['S_mean'] = mean_agg
+    df_score_agg['S_SD'] = se_agg * np.sqrt(df_score_agg.Nramps)
     df_score_agg['S_error_95'] = se_agg * 1.96
 
     return df_score_agg
